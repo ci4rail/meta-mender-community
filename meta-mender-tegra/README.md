@@ -8,10 +8,9 @@ The supported and tested boards are:
 - AGX Xavier
 - Orin Nano
 
-
 ## Dependencies
 
-This layer depends on:
+These layers depend on:
 
 ```
 URI: https://github.com/OE4T/meta-tegra.git
@@ -26,6 +25,20 @@ layers: meta-mender-core
 branch: scarthgap
 revision: HEAD
 ```
+
+## Layer structure
+
+- `meta-mender-tegra-common`
+Holds all common parts of the Mender integration for Tegra across all
+currently supported releases of Jetpack
+
+- `meta-mender-tegra-jetpack5`
+Holds Jetpack release 5 specific parts of the Mender integration for Tegra.
+This correlates with the `scarthgap-l4t-r35.x` branch of `meta-tegra`.
+
+- `meta-mender-tegra-jetpack6`
+Holds Jetpack release 6 specific parts of the Mender integration for Tegra.
+This correlates with the `scarthgap` branch of `meta-tegra`.
 
 ## Quick start
 

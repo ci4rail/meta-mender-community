@@ -26,6 +26,10 @@ repos:
     url: https://git.yoctoproject.org/meta-virtualization.git
     commit: 6a80f140e387621f62964209a2e07d3bcfb125ce
 
+  meta-mender-community:
+    layers:
+      meta-mender-tegra/meta-mender-tegra-common:
+
 distro: tegrademo
 
 local_conf_header:
