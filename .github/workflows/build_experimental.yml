@@ -25,12 +25,22 @@ jobs:
       matrix:
         board: [
           olimex-imx8mp-evb,
-          jetson-agx-orin-devkit,
-          jetson-agx-xavier-devkit,
-          jetson-orin-nano-devkit,
           imx93-var-som
         ]
         subpath: [.]
+        include:
+          - board: jetson-agx-orin-devkit
+            subpath: tegra/jetpack5
+          - board: jetson-agx-xavier-devkit
+            subpath: tegra/jetpack5
+          - board: jetson-orin-nano-devkit
+            subpath: tegra/jetpack5
+          - board: jetson-agx-orin-devkit
+            subpath: tegra/jetpack6
+          - board: jetson-agx-orin-devkit-64
+            subpath: tegra/jetpack6
+          - board: jetson-orin-nano-devkit
+            subpath: tegra/jetpack6
 
     runs-on: [self-hosted, linux, x64, builder]
     container:
