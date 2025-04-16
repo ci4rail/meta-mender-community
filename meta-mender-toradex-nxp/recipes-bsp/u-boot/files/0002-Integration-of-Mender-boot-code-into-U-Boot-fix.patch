@@ -1,7 +1,9 @@
-From 819ac55f607729b55d6938549b551148dd7b4473 Mon Sep 17 00:00:00 2001
+From b4d7a1a4819edb30f9f15bc990d2cab284a2b417 Mon Sep 17 00:00:00 2001
 From: Marcin Pasinski <marcin.pasinski@northern.tech>
 Date: Wed, 31 Jan 2018 18:10:04 +0100
 Subject: [PATCH] Integration of Mender boot code into U-Boot.
+
+Upstream-Status: Inappropriate [Mender specific]
 
 Signed-off-by: Kristian Amlie <kristian.amlie@mender.io>
 Signed-off-by: Maciej Borzecki <maciej.borzecki@rndity.com>
@@ -12,19 +14,19 @@ Signed-off-by: Marcin Pasinski <marcin.pasinski@northern.tech>
  2 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/include/env_default.h b/include/env_default.h
-index 7004a6fef2..21f16d52db 100644
+index 8ee500d1709..6526c78c81f 100644
 --- a/include/env_default.h
 +++ b/include/env_default.h
-@@ -14,6 +14,8 @@
+@@ -12,6 +12,8 @@
+ 
  #include <generated/environment.h>
- #endif
  
 +#include <env_mender.h>
 +
  #ifdef DEFAULT_ENV_INSTANCE_EMBEDDED
  env_t embedded_environment __UBOOT_ENV_SECTION__(environment) = {
  	ENV_CRC,	/* CRC Sum */
-@@ -28,6 +30,7 @@ char default_environment[] = {
+@@ -26,6 +28,7 @@ char default_environment[] = {
  #else
  const char default_environment[] = {
  #endif
@@ -33,11 +35,11 @@ index 7004a6fef2..21f16d52db 100644
  #ifdef	CONFIG_ENV_CALLBACK_LIST_DEFAULT
  	ENV_CALLBACK_VAR "=" CONFIG_ENV_CALLBACK_LIST_DEFAULT "\0"
 diff --git a/scripts/Makefile.autoconf b/scripts/Makefile.autoconf
-index 3fa4d50f1e..b364fd26a2 100644
+index 8208ffe2274..7a9b2c542b7 100644
 --- a/scripts/Makefile.autoconf
 +++ b/scripts/Makefile.autoconf
-@@ -121,7 +121,8 @@ define filechk_config_h
- 	echo \#include \<configs/$(CONFIG_SYS_CONFIG_NAME).h\>;		\
+@@ -116,7 +116,8 @@ define filechk_config_h
+ 	$(if $(CONFIG_SYS_CONFIG_NAME),echo \#include \<configs/$(CONFIG_SYS_CONFIG_NAME).h\> ;) \
  	echo \#include \<asm/config.h\>;				\
  	echo \#include \<linux/kconfig.h\>;				\
 -	echo \#include \<config_fallbacks.h\>;)
@@ -46,6 +48,3 @@ index 3fa4d50f1e..b364fd26a2 100644
  endef
  
  include/config.h: scripts/Makefile.autoconf create_symlink FORCE
--- 
-2.38.1
-
