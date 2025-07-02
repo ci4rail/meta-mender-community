@@ -102,7 +102,7 @@
 +env set load_cmd 'load ${mender_uboot_root}'
 +env set load_cmd_boot 'load ${mender_uboot_root}'
 +env set set_bootcmd_kernel 'env set bootcmd_kernel "${load_cmd} \\${kernel_addr_load} \\${load_prefix}\\${kernel_image}"'
-+env set set_load_overlays_file 'env set load_overlays_file "${load_cmd_boot} \\${loadaddr} \\${overlays_file} && env import -t \\${loadaddr} \\${filesize}"'
++env set set_load_overlays_file 'mw.b \\${loadaddr} 0 100; env set load_overlays_file "${load_cmd_boot} \\${loadaddr} \\${overlays_file}; env import -t \\${loadaddr} \\${filesize}"'
 +env set fdt_resize 'fdt addr ${fdt_addr_r} && fdt resize 0x20000'
 +env set set_bootcmd_dtb 'env set bootcmd_dtb "echo Loading DeviceTree: \\${fdtfile}; ${load_cmd} \\${fdt_addr_r} \\${load_prefix}/freescale/\\${fdtfile}"'
 +env set set_apply_overlays 'env set apply_overlays "for overlay_file in \\${fdt_overlays}; do echo Applying Overlay: \\${overlay_file} && ${load_cmd_boot} \\${loadaddr} \\${overlays_prefix}\\${overlay_file} && fdt apply \\${loadaddr}; env set overlay_file; done; true"'
