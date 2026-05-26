@@ -32,7 +32,7 @@ index ded9e19bcca..063b530393b 100644
 -CONFIG_SYS_MMC_ENV_PART=1
 +CONFIG_SYS_MMC_ENV_PART=0
 +CONFIG_USE_BOOTCOMMAND=y
-+CONFIG_BOOTCOMMAND="run mender_setup; setenv bootargs root=${mender_kernel_root} ro rootwait ${bootargs}; if test ${mender_boot_part} = 2; then setenv mender_bootfit_name fitImage-A; elif test ${mender_boot_part} = 3; then setenv mender_bootfit_name fitImage-B; else echo Invalid Mender boot slot ${mender_boot_part}; reset; fi; if load mmc 2:1 ${ramdisk_addr_r} /${mender_bootfit_name}; then bootm ${ramdisk_addr_r}; fi; run mender_try_to_recover"
++CONFIG_BOOTCOMMAND="run mender_setup; part uuid mmc 2:${mender_boot_part_hex} mender_root_uuid; setenv bootargs ro rootwait root=PARTUUID=${mender_root_uuid}; if test ${mender_boot_part} = 2; then setenv mender_bootfit_name fitImage-A; elif test ${mender_boot_part} = 3; then setenv mender_bootfit_name fitImage-B; else echo Invalid Mender boot slot ${mender_boot_part}; reset; fi; setenv mender_bootfit_conf; if test -n \"${mender_secboot_overlay}\"; then setenv mender_bootfit_conf conf-freescale_${mender_dtb_name}#conf-${mender_secboot_overlay}; fi; if load mmc 2:1 ${ramdisk_addr_r} /${mender_bootfit_name}; then if test -n \"${mender_bootfit_conf}\"; then bootm ${ramdisk_addr_r}#${mender_bootfit_conf}; else bootm ${ramdisk_addr_r}; fi; fi; run mender_try_to_recover"
  CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
  CONFIG_USE_ETHPRIME=y
  CONFIG_ETHPRIME="eth0"
