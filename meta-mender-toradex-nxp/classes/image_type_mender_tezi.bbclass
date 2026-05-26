@@ -2,13 +2,14 @@
 # Based largely on meta-toradex-bsp-common/classes/image_type_tezi.bbclass
 
 # Make sure the rootfs image used by Mender artifacts is available. The Tezi
-# image writes partitions itself instead of embedding a complete sdimg/gptimg so
-# there is no shared bootfs partition in the installed layout.
+# image writes partitions itself instead of embedding a complete sdimg/gptimg.
 IMAGE_TYPEDEP:mender_tezi:append = " ${ARTIFACTIMG_FSTYPE}"
 
 TEZI_AUTO_INSTALL ??= "false"
 TEZI_CONFIG_FORMAT ??= "2"
 TEZI_STORAGE_DEVICE ??= "${@os.path.basename(d.getVar('MENDER_STORAGE_DEVICE'))}"
+TORADEX_MENDER_BOOTFIT_FILENAME ??= "${KERNEL_IMAGETYPE}"
+TORADEX_MENDER_BOOTFIT_ARCHIVE ??= "${IMAGE_LINK_NAME}.bootfit.tar.xz"
 
 # Do not include these image types:
 IMAGE_FSTYPES:remove = "${SOC_DEFAULT_IMAGE_FSTYPES} tar.xz"
@@ -30,6 +31,13 @@ def rootfs_mender_tezi_emmc(d):
     rootfs_filename = "%s.%s" % (imagename, artifact_fstype)
     rootfs_size = (int(d.getVar('MENDER_CALC_ROOTFS_SIZE')) + 1023) // 1024
     rootfs_uncompressed = os.path.getsize(os.path.join(d.getVar('IMGDEPLOYDIR'), rootfs_filename)) // 1048576
+    bootfit_filename = d.getVar('TORADEX_MENDER_BOOTFIT_FILENAME')
+    bootfit_archive = d.getVar('TORADEX_MENDER_BOOTFIT_ARCHIVE')
+    bootfit_size = int(d.getVar('TORADEX_MENDER_BOOTFIT_PART_SIZE_MB'))
+    bootfit_path = os.path.join(d.getVar('DEPLOY_DIR_IMAGE'), bootfit_filename)
+    if not os.path.exists(bootfit_path):
+        bb.fatal("External Mender boot FIT is missing: %s" % bootfit_path)
+    bootfit_uncompressed = 2 * ((os.path.getsize(bootfit_path) + 1048575) // 1048576)
 
     bootpart_rawfiles = []
 
@@ -50,6 +58,18 @@ def rootfs_mender_tezi_emmc(d):
           "name": storage_device,
           "partitions": [
               OrderedDict({
+                "partition_size_nominal": bootfit_size,
+                "partition_type": "83",
+                "want_maximised": False,
+                "content": {
+                    "label": "BOOTFIT",
+                    "filesystem_type": "ext4",
+                    "mkfs_options": "",
+                    "filename": bootfit_archive,
+                    "uncompressed_size": bootfit_uncompressed
+                }
+              }),
+              OrderedDict({
                 "partition_size_nominal": rootfs_size,
                 "partition_type": "83",
                 "want_maximised": False,
@@ -61,7 +81,7 @@ def rootfs_mender_tezi_emmc(d):
                         }
                     ],
                     "uncompressed_size": rootfs_uncompressed
-                }
+                  }
               }),
               OrderedDict({
                 "partition_size_nominal": rootfs_size,
@@ -186,6 +206,7 @@ IMAGE_CMD:mender_tezi () {
     done
 
     rootfs_image="${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${ARTIFACTIMG_FSTYPE}"
+    bootfit_archive="${IMGDEPLOYDIR}/${TORADEX_MENDER_BOOTFIT_ARCHIVE}"
 
     # The first transform strips all folders from the files
     # The second adds back a subfolder
@@ -194,10 +215,21 @@ IMAGE_CMD:mender_tezi () {
 		     -chf ${IMGDEPLOYDIR}/${IMAGE_NAME}.mender_tezi.tar \
 		     ${WORKDIR}/image-json/image.json ${DEPLOY_DIR_IMAGE}/mender-tezi-metadata/* \
 		     $uboot_files \
-		     $rootfs_image
+		     $rootfs_image $bootfit_archive
     ln -sf ${IMAGE_NAME}.mender_tezi.tar ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.mender_tezi.tar
 }
+
+mender_tezi_make_bootfit_archive() {
+    install -d ${WORKDIR}/mender-bootfit
+    install -m 0644 ${DEPLOY_DIR_IMAGE}/${TORADEX_MENDER_BOOTFIT_FILENAME} \
+        ${WORKDIR}/mender-bootfit/fitImage-A
+    install -m 0644 ${DEPLOY_DIR_IMAGE}/${TORADEX_MENDER_BOOTFIT_FILENAME} \
+        ${WORKDIR}/mender-bootfit/fitImage-B
+    ${IMAGE_CMD_TAR} -cJf ${IMGDEPLOYDIR}/${TORADEX_MENDER_BOOTFIT_ARCHIVE} \
+        -C ${WORKDIR}/mender-bootfit fitImage-A fitImage-B
+}
+
 do_image_mender_tezi[dirs] += "${WORKDIR}/image-json ${DEPLOY_DIR_IMAGE}"
-do_image_mender_tezi[cleandirs] += "${WORKDIR}/image-json"
-do_image_mender_tezi[prefuncs] += "rootfs_mender_tezi_json"
+do_image_mender_tezi[cleandirs] += "${WORKDIR}/image-json ${WORKDIR}/mender-bootfit"
+do_image_mender_tezi[prefuncs] += "mender_tezi_make_bootfit_archive rootfs_mender_tezi_json"
 IMAGE_TYPEDEP:mender_tezi[vardepsexclude] = "SRCDATE"

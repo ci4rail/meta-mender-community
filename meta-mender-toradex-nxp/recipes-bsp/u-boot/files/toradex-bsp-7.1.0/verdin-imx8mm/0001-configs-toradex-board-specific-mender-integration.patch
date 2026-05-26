@@ -32,7 +32,7 @@ index 7c6c789edc4..f6e8b6ec298 100644
 -CONFIG_SYS_MMC_ENV_PART=1
 +CONFIG_SYS_MMC_ENV_PART=0
 +CONFIG_USE_BOOTCOMMAND=y
-+CONFIG_BOOTCOMMAND="run mender_setup; setenv bootargs root=${mender_kernel_root} ro rootwait ${bootargs}; load ${mender_uboot_root} ${ramdisk_addr_r} /boot/${mender_kernel_name}; bootm ${ramdisk_addr_r}; run mender_try_to_recover"
++CONFIG_BOOTCOMMAND="run mender_setup; setenv bootargs root=${mender_kernel_root} ro rootwait ${bootargs}; if test ${mender_boot_part} = 2; then setenv mender_bootfit_name fitImage-A; elif test ${mender_boot_part} = 3; then setenv mender_bootfit_name fitImage-B; else echo Invalid Mender boot slot ${mender_boot_part}; reset; fi; if load mmc 0:1 ${ramdisk_addr_r} /${mender_bootfit_name}; then bootm ${ramdisk_addr_r}; fi; run mender_try_to_recover"
  CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
  CONFIG_USE_ETHPRIME=y
  CONFIG_ETHPRIME="eth0"

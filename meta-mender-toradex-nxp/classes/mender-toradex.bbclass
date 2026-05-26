@@ -6,6 +6,27 @@ inherit mender-full
 MENDER_BOOT_PART_SIZE_MB = "0"
 MENDER_DATA_PART_FSTYPE = "ext4"
 
+# The signed FIT contains the dm-verity-aware initramfs. Store one FIT per
+# rootfs slot on a shared boot filesystem and switch the pair through
+# mender_boot_part.
+TORADEX_MENDER_BOOTFIT_PART_SIZE_MB ?= "64"
+TORADEX_MENDER_BOOTFIT_PART_NUMBER = "1"
+TORADEX_MENDER_BOOTFIT_PART = "${MENDER_STORAGE_DEVICE_BASE}${TORADEX_MENDER_BOOTFIT_PART_NUMBER}"
+MENDER_ROOTFS_PART_A_NUMBER = "2"
+MENDER_ROOTFS_PART_B_NUMBER = "3"
+MENDER_DATA_PART_NUMBER = "4"
+
+# mender-setup-install normally budgets only A/B rootfs and data when no
+# standard Mender boot partition is enabled. Reserve the FIT filesystem too.
+MENDER_CALC_ROOTFS_SIZE = "${@mender_calculate_rootfs_size_kb(${MENDER_STORAGE_TOTAL_SIZE_MB}, \
+                                                              ${TORADEX_MENDER_BOOTFIT_PART_SIZE_MB}, \
+                                                              ${MENDER_DATA_PART_SIZE_MB}, \
+                                                              ${MENDER_SWAP_PART_SIZE_MB}, \
+                                                              ${MENDER_PARTITION_ALIGNMENT}, \
+                                                              ${MENDER_PARTITIONING_OVERHEAD_KB}, \
+                                                              ${MENDER_EXTRA_PARTS_TOTAL_SIZE_MB}, \
+                                                              ${MENDER_RESERVED_SPACE_BOOTLOADER_DATA})}"
+
 ARTIFACTIMG_FSTYPE:tdx-signed-dmverity = "${DM_VERITY_IMAGE_TYPE}.verity"
 TORADEX_MENDER_DM_VERITY_OVERHEAD_KB:tdx-signed-dmverity ?= "65536"
 MENDER_IMAGE_ROOTFS_SIZE_DEFAULT:tdx-signed-dmverity = "${@eval('${MENDER_CALC_ROOTFS_SIZE} - (${IMAGE_ROOTFS_EXTRA_SPACE}) - (${TORADEX_MENDER_DM_VERITY_OVERHEAD_KB})')}"
