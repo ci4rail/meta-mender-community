@@ -25,12 +25,14 @@ index ded9e19bcca..063b530393b 100644
  CONFIG_SYS_I2C_MXC_I2C1=y
  CONFIG_SYS_I2C_MXC_I2C2=y
  CONFIG_SYS_I2C_MXC_I2C3=y
-@@ -97,7 +99,7 @@ CONFIG_ENV_OVERWRITE=y
+@@ -97,7 +99,9 @@ CONFIG_ENV_OVERWRITE=y
  CONFIG_ENV_IS_IN_MMC=y
  CONFIG_SYS_RELOC_GD_ENV_ADDR=y
  CONFIG_SYS_MMC_ENV_DEV=2
 -CONFIG_SYS_MMC_ENV_PART=1
 +CONFIG_SYS_MMC_ENV_PART=0
++CONFIG_USE_BOOTCOMMAND=y
++CONFIG_BOOTCOMMAND="run mender_setup; setenv bootargs root=${mender_kernel_root} ro rootwait ${bootargs}; load ${mender_uboot_root} ${ramdisk_addr_r} /boot/${mender_kernel_name}; bootm ${ramdisk_addr_r}; run mender_try_to_recover"
  CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
  CONFIG_USE_ETHPRIME=y
  CONFIG_ETHPRIME="eth0"

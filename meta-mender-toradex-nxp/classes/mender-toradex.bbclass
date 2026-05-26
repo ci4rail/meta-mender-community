@@ -1,3 +1,17 @@
+_MENDER_BOOTLOADER_DEFAULT = "mender-uboot"
+_MENDER_IMAGE_TYPE_DEFAULT = ""
+
+inherit mender-full
+
+MENDER_BOOT_PART_SIZE_MB = "0"
+MENDER_DATA_PART_FSTYPE = "ext4"
+
+ARTIFACTIMG_FSTYPE:tdx-signed-dmverity = "${DM_VERITY_IMAGE_TYPE}.verity"
+TORADEX_MENDER_DM_VERITY_OVERHEAD_KB:tdx-signed-dmverity ?= "65536"
+MENDER_IMAGE_ROOTFS_SIZE_DEFAULT:tdx-signed-dmverity = "${@eval('${MENDER_CALC_ROOTFS_SIZE} - (${IMAGE_ROOTFS_EXTRA_SPACE}) - (${TORADEX_MENDER_DM_VERITY_OVERHEAD_KB})')}"
+
+IMAGE_BOOT_FILES:remove = "boot.scr boot.scr-${MACHINE};boot.scr boot.scr-${MACHINE} boot.scr-verdin-imx8mm;boot.scr boot.scr-verdin-imx8mp;boot.scr"
+
 ROOTFS_POSTPROCESS_COMMAND:append = " toradex_mender_update_fstab_file;"
 toradex_mender_update_fstab_file() {
     # the Toradex BSP sets up a symlink called /dev/boot-part which is added to FSTAB.
@@ -22,9 +36,6 @@ toradex_mender_update_devicetree_overlays() {
 addhandler mender_tezi_sanity_handler
 mender_tezi_sanity_handler[eventmask] = "bb.event.ParseCompleted"
 python mender_tezi_sanity_handler() {
-  if d.getVar('FULL_IMAGE_SUFFIX') == "":
-    bb.fatal("Unable to determine FULL_IMAGE_SUFFIX for use with mender_tezi images.")
-
   menderOffset = d.getVar("MENDER_IMAGE_BOOTLOADER_BOOTSECTOR_OFFSET")
   bootromPayload = d.getVar("OFFSET_BOOTROM_PAYLOAD")
   if (menderOffset != None) and (bootromPayload != None) and (menderOffset != bootromPayload):

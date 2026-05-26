@@ -25,12 +25,14 @@ index 7c6c789edc4..f6e8b6ec298 100644
  CONFIG_DM_GPIO=y
  CONFIG_DEFAULT_DEVICE_TREE="freescale/imx8mm-verdin-wifi-dev"
  CONFIG_SPL_TEXT_BASE=0x7E1000
-@@ -84,7 +86,7 @@ CONFIG_SPL_OF_CONTROL=y
+@@ -84,7 +86,9 @@ CONFIG_SPL_OF_CONTROL=y
  CONFIG_ENV_OVERWRITE=y
  CONFIG_ENV_IS_IN_MMC=y
  CONFIG_SYS_RELOC_GD_ENV_ADDR=y
 -CONFIG_SYS_MMC_ENV_PART=1
 +CONFIG_SYS_MMC_ENV_PART=0
++CONFIG_USE_BOOTCOMMAND=y
++CONFIG_BOOTCOMMAND="run mender_setup; setenv bootargs root=${mender_kernel_root} ro rootwait ${bootargs}; load ${mender_uboot_root} ${ramdisk_addr_r} /boot/${mender_kernel_name}; bootm ${ramdisk_addr_r}; run mender_try_to_recover"
  CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
  CONFIG_USE_ETHPRIME=y
  CONFIG_ETHPRIME="eth0"

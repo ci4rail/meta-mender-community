@@ -4,34 +4,29 @@
 INHERIT += "mender-toradex"
 
 # Comment/remove below to enable GRUB integration instead of U-Boot
-MENDER_FEATURES_ENABLE:append = " mender-uboot mender-image-sd"
+MENDER_FEATURES_ENABLE:append = " mender-uboot"
 MENDER_FEATURES_DISABLE:append = " mender-grub mender-image-uefi"
 
-IMAGE_CLASSES += "image_type_mender_tezi"
-IMAGE_FSTYPES:append = " mender_tezi"
-IMAGE_FSTYPES:remove = " teziimg"
+IMAGE_CLASSES:append:pn-ci4rail-base-image = " image_type_mender_tezi"
+IMAGE_FSTYPES:append:pn-ci4rail-base-image = " mender_tezi"
+IMAGE_FSTYPES:remove:pn-ci4rail-base-image = " teziimg"
 
 # Default is Image.gz, which is not compatible with GRUB
 KERNEL_IMAGETYPE:aarch64:mender-grub = "Image"
 
-# boot.scr conflicts when using GRUB
-IMAGE_BOOT_FILES:remove:mender-grub = "boot.scr-verdin-imx8mm;boot.scr"
-
-# Remove files from boot partition that are loaded by Mender
-# from the root partitions; this allows the files to be updated OTA
-IMAGE_BOOT_FILES:remove:mender-uboot = "zImage ${KERNEL_DEVICETREE} overlays.txt overlays/*;overlays/"
+IMAGE_BOOT_FILES:remove:mender-uboot = "boot.scr boot.scr-${MACHINE};boot.scr boot.scr-verdin-imx8mm;boot.scr boot.scr-verdin-imx8mp;boot.scr"
 
 #
 # Settings for verdin-imx8mm
 #
-MENDER_BOOT_PART_SIZE_MB:verdin-imx8mm = "32"
+TEZI_CONFIG_FORMAT:verdin-imx8mm = "4"
 OFFSET_SPL_PAYLOAD:verdin-imx8mm = ""
 KERNEL_DEVICETREE:verdin-imx8mm = "freescale/imx8mm-verdin-wifi-dahlia.dtb"
 
 #
 # Settings for verdin-imx8mp
 #
-MENDER_BOOT_PART_SIZE_MB:verdin-imx8mp = "32"
+TEZI_CONFIG_FORMAT:verdin-imx8mp = "4"
 OFFSET_SPL_PAYLOAD:verdin-imx8mp = ""
 MENDER_IMAGE_BOOTLOADER_BOOTSECTOR_OFFSET:verdin-imx8mp = "0"
 MENDER_UBOOT_STORAGE_INTERFACE:verdin-imx8mp = "mmc"
@@ -83,11 +78,3 @@ MENDER_STORAGE_DEVICE:apalis-imx6 = "/dev/mmcblk2"
 MENDER_UBOOT_STORAGE_DEVICE:apalis-imx6 = "0"
 MENDER_STORAGE_TOTAL_SIZE_MB:apalis-imx6 = "2048"
 KERNEL_DEVICETREE:apalis-imx6 = "imx6q-apalis-ixora-v1.1.dtb"
-
-# Append the Mender provided bootargs to tdxargs
-# the Toradex boot.scr will overwrite bootargs so we stash the context in tdxargs
-MENDER_UBOOT_POST_SETUP_COMMANDS:append = " ; setenv tdxargs \${tdxargs} \${bootargs}; "
-
-# Make sure the Toradex boot script finds the overlays and overlays.txt file in
-# the /boot directory of the rootfs partition
-MENDER_UBOOT_POST_SETUP_COMMANDS:append = " ; setenv overlays_file /boot/overlays.txt ; setenv overlays_prefix boot/overlays/ "
