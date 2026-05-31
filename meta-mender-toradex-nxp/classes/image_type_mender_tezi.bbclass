@@ -3,7 +3,7 @@
 
 # Make sure the rootfs image used by Mender artifacts is available. The Tezi
 # image writes partitions itself instead of embedding a complete sdimg/gptimg.
-IMAGE_TYPEDEP:mender_tezi:append = " ${ARTIFACTIMG_FSTYPE}"
+IMAGE_TYPEDEP:mender_tezi:append = " ${ARTIFACTIMG_FSTYPE} dataimg"
 
 TEZI_AUTO_INSTALL ??= "false"
 TEZI_CONFIG_FORMAT ??= "2"
@@ -31,6 +31,11 @@ def rootfs_mender_tezi_emmc(d):
     rootfs_filename = "%s.%s" % (imagename, artifact_fstype)
     rootfs_size = (int(d.getVar('MENDER_CALC_ROOTFS_SIZE')) + 1023) // 1024
     rootfs_uncompressed = os.path.getsize(os.path.join(d.getVar('IMGDEPLOYDIR'), rootfs_filename)) // 1048576
+    data_filename = "%s.dataimg" % imagename
+    data_uncompressed = os.path.getsize(os.path.join(d.getVar('IMGDEPLOYDIR'), data_filename)) // 1048576
+    # Leave Mender's raw redundant U-Boot environments ahead of BOOTFIT.
+    bootfit_offset_sectors = (int(d.getVar('MENDER_UBOOT_ENV_STORAGE_DEVICE_OFFSET')) +
+                              int(d.getVar('MENDER_RESERVED_SPACE_BOOTLOADER_DATA'))) // 512
     bootfit_filename = d.getVar('TORADEX_MENDER_BOOTFIT_FILENAME')
     bootfit_archive = d.getVar('TORADEX_MENDER_BOOTFIT_ARCHIVE')
     bootfit_size = int(d.getVar('TORADEX_MENDER_BOOTFIT_PART_SIZE_MB'))
@@ -59,6 +64,7 @@ def rootfs_mender_tezi_emmc(d):
           "partitions": [
               OrderedDict({
                 "partition_size_nominal": bootfit_size,
+                "offset_in_sectors": bootfit_offset_sectors,
                 "partition_type": "83",
                 "want_maximised": False,
                 "content": {
@@ -102,9 +108,13 @@ def rootfs_mender_tezi_emmc(d):
                 "partition_type": "83",
                 "want_maximised": True,
                 "content": {
-                    "label": d.getVar('MENDER_DATA_PART_LABEL'),
-                    "filesystem_type": d.getVar('MENDER_DATA_PART_FSTYPE_TO_GEN'),
-                    "mkfs_options": d.getVar('MENDER_DATA_PART_FSOPTS')
+                    "filesystem_type": "raw",
+                    "rawfiles": [
+                        {
+                            "filename": data_filename
+                        }
+                    ],
+                    "uncompressed_size": data_uncompressed
                 }
               })
           ]
@@ -206,6 +216,7 @@ IMAGE_CMD:mender_tezi () {
     done
 
     rootfs_image="${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${ARTIFACTIMG_FSTYPE}"
+    data_image="${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.dataimg"
     bootfit_archive="${IMGDEPLOYDIR}/${TORADEX_MENDER_BOOTFIT_ARCHIVE}"
 
     # The first transform strips all folders from the files
@@ -215,7 +226,7 @@ IMAGE_CMD:mender_tezi () {
 		     -chf ${IMGDEPLOYDIR}/${IMAGE_NAME}.mender_tezi.tar \
 		     ${WORKDIR}/image-json/image.json ${DEPLOY_DIR_IMAGE}/mender-tezi-metadata/* \
 		     $uboot_files \
-		     $rootfs_image $bootfit_archive
+		     $rootfs_image $data_image $bootfit_archive
     ln -sf ${IMAGE_NAME}.mender_tezi.tar ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.mender_tezi.tar
 }
 
