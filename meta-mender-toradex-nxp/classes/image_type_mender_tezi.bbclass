@@ -1,40 +1,48 @@
 # This class implements a Mender-enabled Toradex Easy Installer image
 # Based largely on meta-toradex-bsp-common/classes/image_type_tezi.bbclass
 
-# Make sure the full Mender multi-partition image is available
-IMAGE_TYPEDEP:mender_tezi:append = "${@bb.utils.contains('IMAGE_FSTYPES', 'sdimg', ' sdimg.gz', '', d)} \
-                                       ${@bb.utils.contains('IMAGE_FSTYPES', 'ubimg', ' ubimg.gz', '', d)} \
-                                       ${@bb.utils.contains('IMAGE_FSTYPES', 'gptimg', ' gptimg.gz', '', d)} \
-                                       ${@bb.utils.contains('IMAGE_FSTYPES', 'uefiimg', ' uefiimg.gz', '', d)} \
-                                       ${@bb.utils.contains('IMAGE_FSTYPES', 'biosimg', ' biosimg.gz', '', d)}"
-
-# Figure out what type of image we are basing this on
-FULL_IMAGE_SUFFIX = ""
-FULL_IMAGE_SUFFIX:mender-image-sd = "sdimg"
-FULL_IMAGE_SUFFIX:mender-image-ubi = "ubimg"
-FULL_IMAGE_SUFFIX:mender-image-uefi = "uefiimg"
-FULL_IMAGE_SUFFIX:mender-image-bios = "biosimg"
-FULL_IMAGE_SUFFIX:mender-image-gpt = "gptimg"
+# Make sure the rootfs image used by Mender artifacts is available. The Tezi
+# image writes partitions itself instead of embedding a complete sdimg/gptimg.
+IMAGE_TYPEDEP:mender_tezi:append = " ${ARTIFACTIMG_FSTYPE} dataimg"
 
 TEZI_AUTO_INSTALL ??= "false"
 TEZI_CONFIG_FORMAT ??= "2"
 TEZI_STORAGE_DEVICE ??= "${@os.path.basename(d.getVar('MENDER_STORAGE_DEVICE'))}"
+TORADEX_MENDER_BOOTFIT_FILENAME ??= "${KERNEL_IMAGETYPE}"
+TORADEX_MENDER_BOOTFIT_ARCHIVE ??= "${IMAGE_LINK_NAME}.bootfit.tar.xz"
 
 # Do not include these image types:
-IMAGE_FSTYPES:remove = "${SOC_DEFAULT_IMAGE_FSTYPES} tar.xz ${FULL_IMAGE_SUFFIX}.bz2"
+IMAGE_FSTYPES:remove = "${SOC_DEFAULT_IMAGE_FSTYPES} tar.xz"
 
 WKS_FILE_DEPENDS:append = " mender-tezi-metadata "
 
+do_image_mender_tezi[depends] += "mender-tezi-metadata:do_deploy"
 do_image_mender_tezi[recrdeptask] += "do_deploy"
 RM_WORK_EXCLUDE += "${PN}"
 
 def rootfs_mender_tezi_emmc(d):
     from collections import OrderedDict
+    import os
     offset_bootrom = d.getVar('OFFSET_BOOTROM_PAYLOAD')
     offset_spl = d.getVar('OFFSET_SPL_PAYLOAD')
     imagename = d.getVar('IMAGE_LINK_NAME')
-    image_suffix = d.getVar('FULL_IMAGE_SUFFIX')
     storage_device = d.getVar('TEZI_STORAGE_DEVICE')
+    artifact_fstype = d.getVar('ARTIFACTIMG_FSTYPE')
+    rootfs_filename = "%s.%s" % (imagename, artifact_fstype)
+    rootfs_size = (int(d.getVar('MENDER_CALC_ROOTFS_SIZE')) + 1023) // 1024
+    rootfs_uncompressed = os.path.getsize(os.path.join(d.getVar('IMGDEPLOYDIR'), rootfs_filename)) // 1048576
+    data_filename = "%s.dataimg" % imagename
+    data_uncompressed = os.path.getsize(os.path.join(d.getVar('IMGDEPLOYDIR'), data_filename)) // 1048576
+    # Leave Mender's raw redundant U-Boot environments ahead of BOOTFIT.
+    bootfit_offset_sectors = (int(d.getVar('MENDER_UBOOT_ENV_STORAGE_DEVICE_OFFSET')) +
+                              int(d.getVar('MENDER_RESERVED_SPACE_BOOTLOADER_DATA'))) // 512
+    bootfit_filename = d.getVar('TORADEX_MENDER_BOOTFIT_FILENAME')
+    bootfit_archive = d.getVar('TORADEX_MENDER_BOOTFIT_ARCHIVE')
+    bootfit_size = int(d.getVar('TORADEX_MENDER_BOOTFIT_PART_SIZE_MB'))
+    bootfit_path = os.path.join(d.getVar('DEPLOY_DIR_IMAGE'), bootfit_filename)
+    if not os.path.exists(bootfit_path):
+        bb.fatal("External Mender boot FIT is missing: %s" % bootfit_path)
+    bootfit_uncompressed = 2 * ((os.path.getsize(bootfit_path) + 1048575) // 1048576)
 
     bootpart_rawfiles = []
 
@@ -53,15 +61,63 @@ def rootfs_mender_tezi_emmc(d):
     return [
         OrderedDict({
           "name": storage_device,
-          "table_type": "gpt",
-              "content": {
-                  "rawfiles": [
-                      {
-                          "dd_options": "bs=8M",
-                          "filename": "%s.%s.gz" % (imagename, image_suffix)
-                      }
-                  ]
-              }
+          "partitions": [
+              OrderedDict({
+                "partition_size_nominal": bootfit_size,
+                "offset_in_sectors": bootfit_offset_sectors,
+                "partition_type": "83",
+                "want_maximised": False,
+                "content": {
+                    "label": "BOOTFIT",
+                    "filesystem_type": "ext4",
+                    "mkfs_options": "",
+                    "filename": bootfit_archive,
+                    "uncompressed_size": bootfit_uncompressed
+                }
+              }),
+              OrderedDict({
+                "partition_size_nominal": rootfs_size,
+                "partition_type": "83",
+                "want_maximised": False,
+                "content": {
+                    "filesystem_type": "raw",
+                    "rawfiles": [
+                        {
+                            "filename": rootfs_filename
+                        }
+                    ],
+                    "uncompressed_size": rootfs_uncompressed
+                  }
+              }),
+              OrderedDict({
+                "partition_size_nominal": rootfs_size,
+                "partition_type": "83",
+                "want_maximised": False,
+                "content": {
+                    "filesystem_type": "raw",
+                    "rawfiles": [
+                        {
+                            "filename": rootfs_filename
+                        }
+                    ],
+                    "uncompressed_size": rootfs_uncompressed
+                }
+              }),
+              OrderedDict({
+                "partition_size_nominal": d.getVar('MENDER_DATA_PART_SIZE_MB'),
+                "partition_type": "83",
+                "want_maximised": True,
+                "content": {
+                    "filesystem_type": "raw",
+                    "rawfiles": [
+                        {
+                            "filename": data_filename
+                        }
+                    ],
+                    "uncompressed_size": data_uncompressed
+                }
+              })
+          ]
         }),
         OrderedDict({
           "name": "%sboot0" % (storage_device),
@@ -127,17 +183,20 @@ python rootfs_mender_tezi_json() {
     data["description"] = d.getVar('DESCRIPTION')
     data["version"] = "Mender %s" % d.getVar('DISTRO_CODENAME')
     data["release_date"] = datetime.strptime(d.getVar('SRCDATE'), '%Y%m%d').date().isoformat()
+    uenv_file = d.getVar('UBOOT_ENV_TEZI_EMMC')
+    if uenv_file and os.path.exists(os.path.join(d.getVar('DEPLOY_DIR_IMAGE'), uenv_file)):
+        data["u_boot_env"] = uenv_file
     data["prepare_script"] = "prepare.sh"
     data["wrapup_script"] = "wrapup.sh"
-    data["marketing"] = "mender-tezi-metadata/marketing_mender_toradex.tar"
-    data["icon"] = "mender-tezi-metadata/mender_toradex_linux.png"
+    data["marketing"] = "marketing_mender_toradex.tar"
+    data["icon"] = "mender_toradex_linux.png"
 
     product_ids = d.getVar('TORADEX_PRODUCT_IDS')
     if product_ids is None:
         bb.fatal("Supported Toradex product ids missing, assign TORADEX_PRODUCT_IDS with a list of product ids.")
     data["supported_product_ids"] = product_ids.split()
 
-    if (d.getVar("FULL_IMAGE_SUFFIX") == "ubimg"):
+    if bb.utils.contains('MENDER_FEATURES', 'mender-image-ubi', True, False, d):
         data["mtddevs"] = rootfs_mender_tezi_rawnand(d)
     else:
         data["blockdevs"] = rootfs_mender_tezi_emmc(d)
@@ -150,11 +209,15 @@ IMAGE_CMD:mender_tezi () {
     cp ${IMGDEPLOYDIR}/image-${IMAGE_BASENAME}*.json ${WORKDIR}/image-json/image.json
 
     uboot_files=""
-    for file in ${UBOOT_BINARY_TEZI_EMMC} ${SPL_BINARY} uboot.env; do
+    for file in ${UBOOT_BINARY_TEZI_EMMC} ${SPL_BINARY} uboot.env ${UBOOT_ENV_TEZI_EMMC}; do
         if [ -f "${DEPLOY_DIR_IMAGE}/$file" ]; then
             uboot_files="${DEPLOY_DIR_IMAGE}/$file $uboot_files"
         fi
     done
+
+    rootfs_image="${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${ARTIFACTIMG_FSTYPE}"
+    data_image="${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.dataimg"
+    bootfit_archive="${IMGDEPLOYDIR}/${TORADEX_MENDER_BOOTFIT_ARCHIVE}"
 
     # The first transform strips all folders from the files
     # The second adds back a subfolder
@@ -163,10 +226,21 @@ IMAGE_CMD:mender_tezi () {
 		     -chf ${IMGDEPLOYDIR}/${IMAGE_NAME}.mender_tezi.tar \
 		     ${WORKDIR}/image-json/image.json ${DEPLOY_DIR_IMAGE}/mender-tezi-metadata/* \
 		     $uboot_files \
-		     ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${FULL_IMAGE_SUFFIX}.gz
+		     $rootfs_image $data_image $bootfit_archive
     ln -sf ${IMAGE_NAME}.mender_tezi.tar ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.mender_tezi.tar
 }
+
+mender_tezi_make_bootfit_archive() {
+    install -d ${WORKDIR}/mender-bootfit
+    install -m 0644 ${DEPLOY_DIR_IMAGE}/${TORADEX_MENDER_BOOTFIT_FILENAME} \
+        ${WORKDIR}/mender-bootfit/fitImage-A
+    install -m 0644 ${DEPLOY_DIR_IMAGE}/${TORADEX_MENDER_BOOTFIT_FILENAME} \
+        ${WORKDIR}/mender-bootfit/fitImage-B
+    ${IMAGE_CMD_TAR} -cJf ${IMGDEPLOYDIR}/${TORADEX_MENDER_BOOTFIT_ARCHIVE} \
+        -C ${WORKDIR}/mender-bootfit fitImage-A fitImage-B
+}
+
 do_image_mender_tezi[dirs] += "${WORKDIR}/image-json ${DEPLOY_DIR_IMAGE}"
-do_image_mender_tezi[cleandirs] += "${WORKDIR}/image-json"
-do_image_mender_tezi[prefuncs] += "rootfs_mender_tezi_json"
+do_image_mender_tezi[cleandirs] += "${WORKDIR}/image-json ${WORKDIR}/mender-bootfit"
+do_image_mender_tezi[prefuncs] += "mender_tezi_make_bootfit_archive rootfs_mender_tezi_json"
 IMAGE_TYPEDEP:mender_tezi[vardepsexclude] = "SRCDATE"

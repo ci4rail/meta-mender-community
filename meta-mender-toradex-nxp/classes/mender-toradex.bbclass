@@ -1,3 +1,38 @@
+_MENDER_BOOTLOADER_DEFAULT = "mender-uboot"
+_MENDER_IMAGE_TYPE_DEFAULT = ""
+
+inherit mender-full
+
+MENDER_BOOT_PART_SIZE_MB = "0"
+MENDER_DATA_PART_FSTYPE = "ext4"
+
+# The signed FIT contains the dm-verity-aware initramfs. Store one FIT per
+# rootfs slot on a shared boot filesystem and switch the pair through
+# mender_boot_part.
+TORADEX_MENDER_BOOTFIT_PART_SIZE_MB ?= "64"
+TORADEX_MENDER_BOOTFIT_PART_NUMBER = "1"
+TORADEX_MENDER_BOOTFIT_PART = "${MENDER_STORAGE_DEVICE_BASE}${TORADEX_MENDER_BOOTFIT_PART_NUMBER}"
+MENDER_ROOTFS_PART_A_NUMBER = "2"
+MENDER_ROOTFS_PART_B_NUMBER = "3"
+MENDER_DATA_PART_NUMBER = "4"
+
+# mender-setup-install normally budgets only A/B rootfs and data when no
+# standard Mender boot partition is enabled. Reserve the FIT filesystem too.
+MENDER_CALC_ROOTFS_SIZE = "${@mender_calculate_rootfs_size_kb(${MENDER_STORAGE_TOTAL_SIZE_MB}, \
+                                                              ${TORADEX_MENDER_BOOTFIT_PART_SIZE_MB}, \
+                                                              ${MENDER_DATA_PART_SIZE_MB}, \
+                                                              ${MENDER_SWAP_PART_SIZE_MB}, \
+                                                              ${MENDER_PARTITION_ALIGNMENT}, \
+                                                              ${MENDER_PARTITIONING_OVERHEAD_KB}, \
+                                                              ${MENDER_EXTRA_PARTS_TOTAL_SIZE_MB}, \
+                                                              ${MENDER_RESERVED_SPACE_BOOTLOADER_DATA})}"
+
+ARTIFACTIMG_FSTYPE:tdx-signed-dmverity = "${DM_VERITY_IMAGE_TYPE}.verity"
+TORADEX_MENDER_DM_VERITY_OVERHEAD_KB:tdx-signed-dmverity ?= "65536"
+MENDER_IMAGE_ROOTFS_SIZE_DEFAULT:tdx-signed-dmverity = "${@eval('${MENDER_CALC_ROOTFS_SIZE} - (${IMAGE_ROOTFS_EXTRA_SPACE}) - (${TORADEX_MENDER_DM_VERITY_OVERHEAD_KB})')}"
+
+IMAGE_BOOT_FILES:remove = "boot.scr boot.scr-${MACHINE};boot.scr boot.scr-${MACHINE} boot.scr-verdin-imx8mm;boot.scr boot.scr-verdin-imx8mp;boot.scr"
+
 ROOTFS_POSTPROCESS_COMMAND:append = " toradex_mender_update_fstab_file;"
 toradex_mender_update_fstab_file() {
     # the Toradex BSP sets up a symlink called /dev/boot-part which is added to FSTAB.
@@ -22,9 +57,6 @@ toradex_mender_update_devicetree_overlays() {
 addhandler mender_tezi_sanity_handler
 mender_tezi_sanity_handler[eventmask] = "bb.event.ParseCompleted"
 python mender_tezi_sanity_handler() {
-  if d.getVar('FULL_IMAGE_SUFFIX') == "":
-    bb.fatal("Unable to determine FULL_IMAGE_SUFFIX for use with mender_tezi images.")
-
   menderOffset = d.getVar("MENDER_IMAGE_BOOTLOADER_BOOTSECTOR_OFFSET")
   bootromPayload = d.getVar("OFFSET_BOOTROM_PAYLOAD")
   if (menderOffset != None) and (bootromPayload != None) and (menderOffset != bootromPayload):
@@ -34,5 +66,5 @@ python mender_tezi_sanity_handler() {
 
 PREFERRED_RPROVIDER_u-boot-default-env = "u-boot-toradex"
 
-TORADEX_BSP_VERSION ??= "toradex-bsp-7.1.0"
+TORADEX_BSP_VERSION ??= "toradex-bsp-7.6.0"
 MACHINEOVERRIDES =. "${TORADEX_BSP_VERSION}:"
