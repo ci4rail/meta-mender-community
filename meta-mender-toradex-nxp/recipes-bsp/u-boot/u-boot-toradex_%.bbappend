@@ -23,3 +23,6 @@ SRC_URI:append:mender-uboot:colibri-imx6ull = " \
 # Use the Toradex specific version of this patch
 SRC_URI:remove:mender-uboot = " file://0002-Integration-of-Mender-boot-code-into-U-Boot.patch "
 SRC_URI:append:mender-uboot = " file://0002-Integration-of-Mender-boot-code-into-U-Boot-fix.patch "
+
+SRC_URI:remove = "git://source.denx.de/u-boot/u-boot.git;protocol=https;branch=master"
+SRC_URI:append = " git://github.com/u-boot/u-boot.git;protocol=https;branch=master"
