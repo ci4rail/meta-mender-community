@@ -5,6 +5,8 @@
 # image writes partitions itself instead of embedding a complete sdimg/gptimg.
 IMAGE_TYPEDEP:mender_tezi:append = " ${ARTIFACTIMG_FSTYPE} dataimg"
 
+MENDER_TEZI_VERSION ?= "${DISTRO_VERSION}"
+
 TEZI_AUTO_INSTALL ??= "false"
 TEZI_CONFIG_FORMAT ??= "2"
 TEZI_STORAGE_DEVICE ??= "${@os.path.basename(d.getVar('MENDER_STORAGE_DEVICE'))}"
@@ -181,7 +183,7 @@ python rootfs_mender_tezi_json() {
 
     data["name"] = d.getVar('SUMMARY')
     data["description"] = d.getVar('DESCRIPTION')
-    data["version"] = "Mender %s" % d.getVar('DISTRO_CODENAME')
+    data["version"] = d.getVar('MENDER_TEZI_VERSION')
     data["release_date"] = datetime.strptime(d.getVar('SRCDATE'), '%Y%m%d').date().isoformat()
     uenv_file = d.getVar('UBOOT_ENV_TEZI_EMMC')
     if uenv_file and os.path.exists(os.path.join(d.getVar('DEPLOY_DIR_IMAGE'), uenv_file)):
